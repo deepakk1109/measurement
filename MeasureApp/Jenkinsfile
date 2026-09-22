@@ -12,7 +12,7 @@ pipeline {
             }
         }
 
-       stage('Build APK (Docker, Android SDK image)') {
+      stage('Build APK (Docker, Android SDK image)') {
             steps {
                 sh '''
                     docker run --rm \
@@ -27,6 +27,12 @@ pipeline {
                           unzip -q /tmp/gradle-8.6.zip -d /opt
                           rm /tmp/gradle-8.6.zip
                         fi
+
+                        echo '=== Configuring AndroidX properties ==='
+                        touch gradle.properties
+                        echo 'android.useAndroidX=true' >> gradle.properties
+                        echo 'android.enableJetifier=true' >> gradle.properties
+
                         echo '=== Building Android APK ==='
                         /opt/gradle-8.6/bin/gradle assembleDebug --no-daemon
                       "
