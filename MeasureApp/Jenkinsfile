@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    environment {
+        QUAY_REPO   = 'quay.io/deepakk1109/measureapp-download'
+        OC_PROJECT  = 'deepakkrishnamoorthi'
+        APP_NAME    = 'measureapp-download'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/<your-username>/MeasureApp.git'
+            }
+        }
+
+        stage('Build APK (Docker, Android SDK image)') {
+            steps {
+                sh '''
+                    docker run --rm -v "$PWD":/project -w /project \
+                        mingc/android-build-box:latest \
+                        bash -c "chmod +x gradlew && ./gradlew assembleDebug"
+                '''
+            }
+        }
+
+        stage('Package APK into Nginx download image') {
+            steps {
+                sh '''
+                    mkdir -p docker-serve/apk
+                    cp app/build/outputs/apk/debug/app-debug.apk docker-serve/apk/measureapp.apk
+                    docker build -t $QUAY_REPO:$BUILD_NUMBER docker-serve/
+                '''
+            }
+        }
+
+        stage('Push to Quay.io') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'quay-creds', usernameVariable: 'QUAY_USER', passwordVariable: 'QUAY_PASS')]) {
+                    sh '''
+                        docker login quay.io -u $QUAY_USER -p $QUAY_PASS
+                        docker push $QUAY_REPO:$BUILD_NUMBER
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to OpenShift') {
+            steps {
+                sh '''
+                    oc project $OC_PROJECT
+                    oc new-app $QUAY_REPO:$BUILD_NUMBER --name=$APP_NAME || \
+                    oc set image deployment/$APP_NAME $APP_NAME=$QUAY_REPO:$BUILD_NUMBER
+                    oc expose svc/$APP_NAME --port=80 || true
+                '''
+            }
+        }
+    }
+}
