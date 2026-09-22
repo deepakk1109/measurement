@@ -14,14 +14,20 @@ pipeline {
     }
 }
 
-        stage('Build APK (Docker, Android SDK image)') {
+       stage('Build APK (Docker, Android SDK image)') {
     steps {
         sh '''
             docker run --rm \
               -v "$WORKSPACE":/project \
               -w /project/MeasureApp \
               mingc/android-build-box:latest \
-              bash -c "chmod +x gradlew && ./gradlew assembleDebug --no-daemon"
+              bash -c "
+                if [ ! -f gradlew ]; then
+                  gradle wrapper
+                fi
+                chmod +x gradlew
+                ./gradlew assembleDebug --no-daemon
+              "
         '''
     }
 }
