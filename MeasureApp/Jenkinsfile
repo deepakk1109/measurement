@@ -8,11 +8,11 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: 'https://github.com/<your-username>/MeasureApp.git'
-            }
-        }
+       stage('Checkout') {
+    steps {
+        checkout scm
+    }
+}
 
         stage('Build APK (Docker, Android SDK image)') {
             steps {
