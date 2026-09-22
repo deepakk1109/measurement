@@ -14,7 +14,7 @@ pipeline {
     }
 }
 
-       stage('Build APK (Docker, Android SDK image)') {
+      stage('Build APK (Docker, Android SDK image)') {
     steps {
         sh '''
             docker run --rm \
@@ -22,11 +22,8 @@ pipeline {
               -w /project/MeasureApp \
               mingc/android-build-box:latest \
               bash -c "
-                if [ ! -f gradlew ]; then
-                  gradle wrapper
-                fi
-                chmod +x gradlew
-                ./gradlew assembleDebug --no-daemon
+                apt-get update -qq && apt-get install -y -qq gradle
+                gradle assembleDebug --no-daemon
               "
         '''
     }
