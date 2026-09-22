@@ -12,7 +12,7 @@ pipeline {
             }
         }
 
-        stage('Build APK (Docker, Android SDK image)') {
+       stage('Build APK (Docker, Android SDK image)') {
             steps {
                 sh '''
                     docker run --rm \
@@ -21,14 +21,14 @@ pipeline {
                       mingc/android-build-box:latest \
                       bash -c "
                         set -e
-                        echo '=== Setting up Gradle 8.4 ==='
-                        if [ ! -d /opt/gradle-8.4 ]; then
-                          curl -sSL https://services.gradle.org/distributions/gradle-8.4-bin.zip -o /tmp/gradle-8.4.zip
-                          unzip -q /tmp/gradle-8.4.zip -d /opt
-                          rm /tmp/gradle-8.4.zip
+                        echo '=== Setting up Gradle 8.6 ==='
+                        if [ ! -d /opt/gradle-8.6 ]; then
+                          curl -sSL https://services.gradle.org/distributions/gradle-8.6-bin.zip -o /tmp/gradle-8.6.zip
+                          unzip -q /tmp/gradle-8.6.zip -d /opt
+                          rm /tmp/gradle-8.6.zip
                         fi
                         echo '=== Building Android APK ==='
-                        /opt/gradle-8.4/bin/gradle assembleDebug --no-daemon
+                        /opt/gradle-8.6/bin/gradle assembleDebug --no-daemon
                       "
                 '''
             }
