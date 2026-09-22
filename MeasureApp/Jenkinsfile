@@ -12,56 +12,55 @@ pipeline {
             }
         }
 
-       stage('Package APK into Nginx download image') {
+        stage('Build APK (Docker, Android SDK image)') {
             steps {
                 sh '''
-                    set -e
-                    echo '=== Preparing APK for Nginx Docker Image ==='
-                    
-                    # apk அடைவுகளை உருவாக்கி APK-வை நகலெடுத்தல்
-                    mkdir -p $APP_DIR/apk
-                    mkdir -p $APP_DIR/docker-serve/apk
-                    cp $APP_DIR/app/build/outputs/apk/debug/app-debug.apk $APP_DIR/apk/
-                    cp $APP_DIR/app/build/outputs/apk/debug/app-debug.apk $APP_DIR/docker-serve/apk/
+                    docker run --rm \
+                      -v "$WORKSPACE":/project \
+                      -w /project/$APP_DIR \
+                      mingc/android-build-box:latest \
+                      bash -c "
+                        set -e
+                        echo '=== Setting up Gradle 8.6 ==='
+                        if [ ! -d /opt/gradle-8.6 ]; then
+                          curl -sSL https://services.gradle.org/distributions/gradle-8.6-bin.zip -o /tmp/gradle-8.6.zip
+                          unzip -q /tmp/gradle-8.6.zip -d /opt
+                          rm /tmp/gradle-8.6.zip
+                        fi
 
-                    # ஒருவேளை docker-serve ஃபோல்டரில் index.html இல்லையென்றால் அதை உருவாக்குதல்
-                    if [ ! -f "$APP_DIR/docker-serve/index.html" ]; then
-                        echo '<!DOCTYPE html><html><body><h1>MeasureApp Download</h1><p><a href="apk/app-debug.apk">Download APK</a></p></body></html>' > $APP_DIR/docker-serve/index.html
-                    fi
+                        echo '=== Configuring AndroidX properties ==='
+                        touch gradle.properties
+                        echo 'android.useAndroidX=true' >> gradle.properties
+                        echo 'android.enableJetifier=true' >> gradle.properties
 
-                    # Nginx Dockerfile கொண்டு இமேஜ் பில்ட் செய்தல்
-                    if [ -f "$APP_DIR/docker-serve/Dockerfile" ]; then
-                        docker build -t measurement-download:latest -f $APP_DIR/docker-serve/Dockerfile $APP_DIR/docker-serve
-                    else
-                        docker build -t measurement-download:latest - <<EOF
-FROM nginx:alpine
-COPY apk/app-debug.apk /usr/share/nginx/html/app-debug.apk
-RUN echo '<h1>MeasureApp Download</h1><p><a href="app-debug.apk">Download APK</a></p>' > /usr/share/nginx/html/index.html
-EXPOSE 80
-EOF
-                    fi
+                        echo '=== Building Android APK ==='
+                        /opt/gradle-8.6/bin/gradle assembleDebug --no-daemon
+                      "
                 '''
             }
         }
+
         stage('Package APK into Nginx download image') {
             steps {
                 sh '''
                     set -e
                     echo '=== Preparing APK for Nginx Docker Image ==='
                     
-                    # apk அடைவுகளை உருவாக்கி APK-வை அங்கே நகலெடுத்தல்
                     mkdir -p $APP_DIR/apk
                     mkdir -p $APP_DIR/docker-serve/apk
                     cp $APP_DIR/app/build/outputs/apk/debug/app-debug.apk $APP_DIR/apk/
                     cp $APP_DIR/app/build/outputs/apk/debug/app-debug.apk $APP_DIR/docker-serve/apk/
 
-                    # Nginx Dockerfile பில்ட் செய்தல்
+                    if [ ! -f "$APP_DIR/docker-serve/index.html" ]; then
+                        echo '<!DOCTYPE html><html><body><h1>MeasureApp Download</h1><p><a href="apk/app-debug.apk">Download APK</a></p></body></html>' > $APP_DIR/docker-serve/index.html
+                    fi
+
                     if [ -f "$APP_DIR/docker-serve/Dockerfile" ]; then
-                        docker build -t measurement-download:latest -f $APP_DIR/docker-serve/Dockerfile $APP_DIR
+                        docker build -t measurement-download:latest -f $APP_DIR/docker-serve/Dockerfile $APP_DIR/docker-serve
                     else
                         docker build -t measurement-download:latest - <<EOF
 FROM nginx:alpine
-COPY $APP_DIR/app/build/outputs/apk/debug/app-debug.apk /usr/share/nginx/html/app-debug.apk
+COPY apk/app-debug.apk /usr/share/nginx/html/app-debug.apk
 RUN echo '<h1>MeasureApp Download</h1><p><a href="app-debug.apk">Download APK</a></p>' > /usr/share/nginx/html/index.html
 EXPOSE 80
 EOF
