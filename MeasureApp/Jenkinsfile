@@ -15,14 +15,16 @@ pipeline {
 }
 
         stage('Build APK (Docker, Android SDK image)') {
-            steps {
-                sh '''
-                    docker run --rm -v "$PWD":/project -w /project \
-                        mingc/android-build-box:latest \
-                        bash -c "chmod +x gradlew && ./gradlew assembleDebug"
-                '''
-            }
-        }
+    steps {
+        sh '''
+            docker run --rm \
+              -v "$WORKSPACE":/project \
+              -w /project/MeasureApp \
+              mingc/android-build-box:latest \
+              bash -c "chmod +x gradlew && ./gradlew assembleDebug --no-daemon"
+        '''
+    }
+}
 
         stage('Package APK into Nginx download image') {
             steps {
